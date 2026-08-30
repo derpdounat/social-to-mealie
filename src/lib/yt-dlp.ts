@@ -78,4 +78,81 @@ export async function downloadMediaWithYtDlp(
             }
         }
     }
-    
+
+
+function shellQuote(value: string): string {
+    return `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
+export async function downloadThumbnailWithYtDlp(
+    url: string
+): Promise<{ blob: Blob; extension: string } | null> {
+    const tempDir = await fs.promises.mkdtemp(
+        path.join(os.tmpdir(), "social-to-mealie-thumbnail-")
+    );
+
+    try {
+        const outputTemplate = path.join(tempDir, "thumbnail.%(ext)s");
+
+        const cookiesArg = env.COOKIES
+            ? `--cookies ${shellQuote(env.COOKIES)}`
+            : "";
+
+        await execAsync(
+            `${shellQuote(env.YTDLP_PATH)} ` +
+            `${cookiesArg} ` +
+            `--skip-download ` +
+            `--write-thumbnail ` +
+            `--convert-thumbnails jpg ` +
+            `-o ${shellQuote(outputTemplate)} ` +
+            `${shellQuote(url)}`,
+            { maxBuffer: 50 * 1024 * 1024 }
+        );
+
+        const files = await fs.promises.readdir(tempDir);
+
+        const imageFile = files.find((file) =>
+            /\.(jpg|jpeg|png|webp)$/i.test(file)
+        );
+
+        if (!imageFile) {
+            console.warn("yt-dlp did not produce a thumbnail");
+            return null;
+        }
+
+        const imagePath = path.join(tempDir, imageFile);
+        const buffer = await fs.promises.readFile(imagePath);
+
+        let extension = path.extname(imageFile)
+            .replace(".", "")
+            .toLowerCase();
+
+        if (extension === "jpeg") {
+            extension = "jpg";
+        }
+
+        const mediaType =
+            extension === "png"
+                ? "image/png"
+                : extension === "webp"
+                  ? "image/webp"
+                  : "image/jpeg";
+
+        console.log(
+            `yt-dlp thumbnail downloaded: ${imageFile} (${buffer.length} bytes)`
+        );
+
+        return {
+            blob: new Blob(
+                [new Uint8Array(buffer)],
+                { type: mediaType }
+            ),
+            extension,
+        };
+    } finally {
+        await fs.promises.rm(
+            tempDir,
+            { recursive: true, force: true }
+        );
+    }
+}

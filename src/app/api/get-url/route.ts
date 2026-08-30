@@ -1,8 +1,8 @@
-import { getRecipe, postRecipe } from "@/lib/mealie";
+import { getRecipe, postRecipe, uploadRecipeImage } from "@/lib/mealie";
 import type { progressType, socialMediaResult } from "@/lib/types";
 import { generateRecipeFromAI, getTranscription } from "@/lib/ai";
 import { env } from "@/lib/constants";
-import { downloadMediaWithYtDlp } from "@/lib/yt-dlp";
+import { downloadMediaWithYtDlp, downloadThumbnailWithYtDlp } from "@/lib/yt-dlp";
 
 interface RequestBody {
     url: string;
@@ -71,7 +71,43 @@ async function handleRequest(
 
         console.log("Posting recipe to Mealie", recipe);
         const mealieResponse = await postRecipe(recipe);
-        const createdRecipe = await getRecipe(await mealieResponse);
+        const recipeSlug = await mealieResponse;
+
+        // Instagram CDN image URLs can return HTTP 403 when Mealie
+        // tries to fetch them itself. Download the thumbnail through
+        // yt-dlp's Instagram session and upload it directly to Mealie.
+        try {
+            const hostname = new URL(url).hostname.toLowerCase();
+
+            const isInstagram =
+                hostname === "instagram.com" ||
+                hostname === "www.instagram.com" ||
+                hostname.endsWith(".instagram.com");
+
+            if (isInstagram) {
+                console.log(
+                    "Instagram URL detected, downloading thumbnail locally"
+                );
+
+                const thumbnail =
+                    await downloadThumbnailWithYtDlp(url);
+
+                if (thumbnail) {
+                    await uploadRecipeImage(
+                        recipeSlug,
+                        thumbnail.blob,
+                        thumbnail.extension
+                    );
+                }
+            }
+        } catch (imageError) {
+            console.warn(
+                "Recipe was created, but direct image upload failed:",
+                imageError
+            );
+        }
+
+        const createdRecipe = await getRecipe(recipeSlug);
         console.log("Recipe created");
         progress.recipeCreated = true;
         if (isSse && controller) {

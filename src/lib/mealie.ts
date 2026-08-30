@@ -66,3 +66,43 @@ export async function getRecipe(recipeSlug: string): Promise<recipeResult> {
         url: `${env.EXTERNAL_MEALIE_URL || env.MEALIE_URL}/g/${env.MEALIE_GROUP_NAME}/r/${recipeSlug}`,
     };
 }
+
+
+export async function uploadRecipeImage(
+    recipeSlug: string,
+    image: Blob,
+    extension: string
+): Promise<void> {
+    const formData = new FormData();
+
+    formData.append(
+        "image",
+        image,
+        `recipe-image.${extension}`
+    );
+    formData.append("extension", extension);
+
+    const res = await fetch(
+        `${env.MEALIE_URL}/api/recipes/${encodeURIComponent(recipeSlug)}/image`,
+        {
+            method: "PUT",
+            headers: {
+                Authorization: `Bearer ${env.MEALIE_API_KEY}`,
+            },
+            body: formData,
+            signal: AbortSignal.timeout(120000),
+        }
+    );
+
+    if (!res.ok) {
+        const errorText = await res.text();
+
+        throw new Error(
+            `Failed to upload recipe image: ${res.status} ${res.statusText} - ${errorText}`
+        );
+    }
+
+    console.log(
+        `Recipe image uploaded directly to Mealie: ${recipeSlug}`
+    );
+}
