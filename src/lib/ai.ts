@@ -23,7 +23,12 @@ export async function getTranscription(blob: Blob): Promise<string> {
             wav.toBitDepth('32f');
             wav.toSampleRate(16000);
             let audioData: any = wav.getSamples();
-            const result = await transcriber(audioData);
+            const result = await transcriber(audioData, {
+                language: env.WHISPER_LANGUAGE,
+                task: "transcribe",
+                chunk_length_s: 29,
+                stride_length_s: 5,
+            });
 
             if (result && typeof result === 'object' && 'text' in result) {
                 return (result as any).text;
@@ -155,9 +160,47 @@ export async function generateRecipeFromAI(
             ],
         });
         return output;
-    } catch
-        (error) {
+    } catch (error) {
         console.error("Error generating recipe with AI:", error);
+
+        const rawText =
+            (error as any)?.text ??
+            (error as any)?.cause?.text;
+
+        if (typeof rawText === "string") {
+            const cleaned = rawText
+                .trim()
+                .replace(/^```(?:json)?\s*/i, "")
+                .replace(/\s*```$/, "")
+                .replace(/^`(?:json)?\s*/i, "")
+                .replace(/\s*`$/, "");
+
+            try {
+                const parsed = JSON.parse(cleaned);
+
+                // Common OpenRouter deviations
+                if (Array.isArray(parsed.image)) {
+                    parsed.image = parsed.image[0] ?? null;
+                }
+
+                if (typeof parsed.keywords === "string") {
+                    parsed.keywords = parsed.keywords
+                        .split(",")
+                        .map((x: string) => x.trim())
+                        .filter(Boolean);
+                }
+
+                if (parsed["@context"] === "https://schema.org/") {
+                    parsed["@context"] = "https://schema.org";
+                }
+
+                console.warn("Recovered JSON from fenced AI response");
+                return parsed;
+            } catch (fallbackError) {
+                console.error("Fallback JSON parsing failed:", fallbackError);
+            }
+        }
+
         throw new Error("Failed to generate recipe structure");
     }
 }

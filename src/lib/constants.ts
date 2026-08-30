@@ -25,4 +25,6 @@ export const env: envTypes = {
     COOKIES: process.env.COOKIES?.trim() || ("" as string),
     LOCAL_TRANSCRIPTION_MODEL:
         process.env.LOCAL_TRANSCRIPTION_MODEL?.trim() || ("" as string),
+    WHISPER_LANGUAGE:
+        process.env.WHISPER_LANGUAGE?.trim() || ("de" as string),
 };

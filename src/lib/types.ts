@@ -19,6 +19,7 @@ export type envTypes = {
     EXTRA_PROMPT: string;
     COOKIES: string;
     LOCAL_TRANSCRIPTION_MODEL: string;
+    WHISPER_LANGUAGE: string;
 };
 
 export type recipeResult = {
