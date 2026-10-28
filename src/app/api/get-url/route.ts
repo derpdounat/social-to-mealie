@@ -16,7 +16,7 @@ async function handleRequest(
 ) {
     const encoder = new TextEncoder();
     let socialMediaResult: socialMediaResult;
-    let transcription = "There is not transcriptions";
+    let transcription = "";
 
     const progress: progressType = {
         videoDownloaded: null,
@@ -32,10 +32,18 @@ async function handleRequest(
         }
         socialMediaResult = await downloadMediaWithYtDlp(url);
 
+        const hasUsableDescription =
+            socialMediaResult.description.trim() !== "No description found" &&
+            socialMediaResult.description.trim().length >= 80;
+
         const hasUsableContent =
-            socialMediaResult.blob ||
-            (socialMediaResult.images && socialMediaResult.images.length > 0) ||
-            (socialMediaResult.thumbnail && socialMediaResult.thumbnail !== "notfound");
+            Boolean(socialMediaResult.blob) ||
+            socialMediaResult.images.length > 0 ||
+            hasUsableDescription ||
+            Boolean(
+                socialMediaResult.thumbnail &&
+                socialMediaResult.thumbnail !== "notfound"
+            );
 
         if (!hasUsableContent) {
             throw new Error("Could not extract any media or metadata from the provided URL");
@@ -54,6 +62,14 @@ async function handleRequest(
             if (isSse && controller) {
                 controller.enqueue(
                     encoder.encode(`data: ${JSON.stringify({progress})}\n\n`)
+                );
+            }
+        } else {
+            progress.audioTranscribed = "skipped";
+
+            if (isSse && controller) {
+                controller.enqueue(
+                    encoder.encode(`data: ${JSON.stringify({ progress })}\n\n`)
                 );
             }
         }

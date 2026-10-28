@@ -235,7 +235,26 @@ export async function downloadMediaWithGalleryDl(
                 `gallery-dl video detected, extracting audio from ${resolvedUrl}`
             );
 
-            result.blob = await downloadVideoAsWav(resolvedUrl);
+            try {
+                result.blob = await downloadVideoAsWav(resolvedUrl);
+            } catch (error) {
+                const description = result.description.trim();
+
+                const hasUsefulDescription =
+                    description !== "No description found" &&
+                    description.length >= 80;
+
+                if (!hasUsefulDescription) {
+                    throw error;
+                }
+
+                console.warn(
+                    "Audio extraction failed; using video description instead:",
+                    error instanceof Error
+                        ? error.message.split("\n")[0]
+                        : String(error)
+                );
+            }
         }
 
         result.description = result.description.trim();

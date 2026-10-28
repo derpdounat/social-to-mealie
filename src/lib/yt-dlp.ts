@@ -18,6 +18,20 @@ const ytdlp = new YtDlp({
     binaryPath: env.YTDLP_PATH,
 });
 
+const TIKTOK_USER_AGENT =
+    process.env.TIKTOK_USER_AGENT?.trim() ||
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36 OPR/118.0.0.0";
+
+function isTikTokUrl(url: string): boolean {
+    try {
+        const hostname = new URL(url).hostname.toLowerCase();
+        return hostname === "tiktok.com" ||
+            hostname.endsWith(".tiktok.com");
+    } catch {
+        return false;
+    }
+}
+
 async function convertBufferToWav(inputBuffer: Uint8Array, fileExt: string = ""): Promise<Buffer> {
     const tempDir = os.tmpdir();
     const ext = fileExt ? (fileExt.startsWith('.') ? fileExt : `.${fileExt}`) : '';
@@ -47,15 +61,22 @@ export async function downloadMediaWithYtDlp(
     url: string
 ): Promise<socialMediaResult> {
     try {
+        const isTikTok = isTikTokUrl(url);
+        const tikTokOptions = isTikTok
+            ? { userAgent: TIKTOK_USER_AGENT }
+            : {};
+
         // Get video metadata first
         const metadata = (await ytdlp.getInfoAsync(url, {
             cookies: env.COOKIES,
+            ...tikTokOptions,
         })) as VideoInfo;
 
         // Get audio stream as a file/buffer
         const audioFile = await ytdlp.getFileAsync(url, {
-            format: { filter: "audioonly" },
+            format: isTikTok ? "audio" : { filter: "audioonly" },
             cookies: env.COOKIES,
+            ...tikTokOptions,
         });
 
         const buffer = await audioFile.bytes();

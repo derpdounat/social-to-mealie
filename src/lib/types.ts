@@ -31,7 +31,7 @@ export type recipeResult = {
 
 export type progressType = {
     videoDownloaded: null | boolean;
-    audioTranscribed: null | boolean;
+    audioTranscribed: null | boolean | "skipped";
     recipeCreated: null | boolean;
 };
 

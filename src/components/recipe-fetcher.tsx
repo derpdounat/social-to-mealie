@@ -111,9 +111,13 @@ export function RecipeFetcher({ tags }: { tags: string[] }) {
                             )}
                         </p>
                         <p className={'flex gap-4'}>
-                            Audio transcribed{' '}
+                            {progress.audioTranscribed === "skipped"
+                                ? "Audio skipped (description only)"
+                                : "Audio transcribed"}{" "}
                             {progress.audioTranscribed === true ? (
                                 <CircleCheck />
+                            ) : progress.audioTranscribed === "skipped" ? (
+                                <span aria-label="Skipped">—</span>
                             ) : progress.audioTranscribed === null ? (
                                 <Spinner size={'small'} />
                             ) : (
